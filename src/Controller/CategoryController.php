@@ -47,9 +47,6 @@ class CategoryController extends APIController
         } catch (UnprocessableEntityHttpException $exception) {
 
             return $this->respondValidationFail($exception->getMessage());
-        }  catch (NotFoundHttpException $exception) {
-
-            return $this->respondNotFoundError($exception->getMessage());
         } catch (\Exception $exception) {
 
             return $this->respondBadRequestError($exception->getMessage());

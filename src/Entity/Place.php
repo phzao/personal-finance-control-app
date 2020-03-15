@@ -19,9 +19,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @ORM\Table(name="places",
  *      uniqueConstraints={@ORM\UniqueConstraint(columns={"user_id", "description"})},
  *     indexes={
- *     @ORM\Index(name="places_status_type_idx", columns={"status"}),
- *     @ORM\Index(name="places_user_description_idx", columns={"user_id", "description"}),
- *     @ORM\Index(name="places_user_status_idx", columns={"user_id", "status"})
+ *     @ORM\Index(name="places_status_type_idx", columns={"status"})
  * })
  */
 class Place extends ModelBase implements PlaceInterface, ModelInterface, SimpleTimeInterface, \JsonSerializable, ReadUserOutsideInterface

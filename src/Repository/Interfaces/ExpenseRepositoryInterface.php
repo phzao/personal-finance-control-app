@@ -18,4 +18,8 @@ interface ExpenseRepositoryInterface extends BaseRepositoryInterface
     public function setAllExpensesDeletedAtByToken(string $token_group, string $deleted_date);
 
     public function getOneByRegisteredAndID(string $user_id, string $uuid): ?Expense;
+
+    public function getDataToPieChartByCategoryAndDueDate(array $params): array;
+
+    public function getLast12MonthsStatisticsByCategoryAndDueDate(array $params): array;
 }

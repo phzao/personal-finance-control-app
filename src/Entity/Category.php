@@ -20,9 +20,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @ORM\Table(name="categories",
  *      uniqueConstraints={@ORM\UniqueConstraint(columns={"user_id", "description"})},
  *     indexes={
- *     @ORM\Index(name="categories_status_type_idx", columns={"status"}),
- *     @ORM\Index(name="categories_user_description_idx", columns={"user_id", "description"}),
- *     @ORM\Index(name="categories_user_status_idx", columns={"user_id", "status"})
+ *     @ORM\Index(name="categories_status_type_idx", columns={"status"})
  * })
  */
 class Category extends ModelBase implements CategoryInterface, ModelInterface, SimpleTimeInterface, \JsonSerializable, ReadUserOutsideInterface

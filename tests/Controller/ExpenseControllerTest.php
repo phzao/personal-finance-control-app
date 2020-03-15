@@ -28,22 +28,6 @@ class ExpenseControllerTest extends WebTestCase
         $this->client = static::createClient();
     }
 
-    public function testDescriptionAsTheSameFromTheLastOneShouldFail()
-    {
-        $result = $this->getTokenAuthenticate();
-
-        $this->client->request('POST', self::EXPENSE_ROUTE, ["description" => "shop"], [], ["HTTP_Authorization" => $result["token"]]);
-        $this->assertResponseStatusCodeSame(201);
-
-        $this->client->request('POST', self::EXPENSE_ROUTE, ["description" => "shop"], [], ["HTTP_Authorization" => $result["token"]]);
-        $this->assertResponseStatusCodeSame(405);
-
-        $this->assertJsonStringEqualsJsonString('{
-                                                      "status": "error",
-                                                      "message": "Duplication detected!You can\'t registered another expense with the same description from the last one."
-                                                    }', $this->client->getResponse()->getContent());
-    }
-
     public function testRegisterWithoutLoginShouldFail()
     {
         $this->client->request('POST', self::EXPENSE_ROUTE, ["description" => "shop"]);
@@ -897,5 +881,202 @@ class ExpenseControllerTest extends WebTestCase
         $this->assertEquals(1000, $res["data"][0]["value"]);
         $this->assertEquals(1000, $res["data"][1]["value"]);
         $this->assertEquals(1000, $res["data"][2]["value"]);
+    }
+
+    public function testRegisterBatchSuccess()
+    {
+        $result = $this->getTokenAuthenticate();
+
+        $multiple = [
+            ["due_date" => "2019-01-15", "paid_at" => "2019-01-15 22:00:00", "description"=>"Prime Foods Comercio e","total_installments"=>1,"category"=>"restaurante","value"=>18.9,"paid_value"=>18.9],
+            ["due_date"=>"2019-01-16","paid_at"=>"2019-01-16 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>76.97,"paid_value"=>76.97],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Mc Donalds","total_installments"=>1,"category"=>"restaurante","value"=>3,"paid_value"=>3],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>40.78,"paid_value"=>40.78],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Dirceu Martins","total_installments"=>1,"category"=>"serviços","value"=>45,"paid_value"=>45],
+            ["due_date"=>"2019-01-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Studio dos Cachos","total_installments"=>1,"category"=>"serviços","value"=>65,"paid_value"=>65],
+            ["due_date"=>"2019-01-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Havan Importados","total_installments"=>1,"category"=>"eletrônicos","value"=>194.97,"paid_value"=>194.97]
+        ];
+
+        $expense = $this->registerExpense(self::EXPENSE_ROUTE."/batch", $multiple, $result["token"]);
+
+        $this->assertEquals(1, $expense[0]["total_installments"]);
+        $this->assertEquals(1, $expense[1]["total_installments"]);
+        $this->assertEquals(1, $expense[2]["total_installments"]);
+        $this->assertEquals(1, $expense[3]["total_installments"]);
+        $this->assertEquals(1, $expense[4]["total_installments"]);
+        $this->assertEquals(1, $expense[5]["total_installments"]);
+        $this->assertEquals(1, $expense[6]["total_installments"]);
+
+        $this->assertEquals(18.9,$expense[0]["value"]);
+        $this->assertEquals(76.97,$expense[1]["value"]);
+        $this->assertEquals(3,$expense[2]["value"]);
+        $this->assertEquals(40.78,$expense[3]["value"]);
+        $this->assertEquals(45,$expense[4]["value"]);
+        $this->assertEquals(65,$expense[5]["value"]);
+        $this->assertEquals(194.97,$expense[6]["value"]);
+    }
+
+    public function testRegisterBatchWithErrorSaveDataBeforeStopFail()
+    {
+        $result = $this->getTokenAuthenticate();
+
+        $multiple = [
+            ["due_date" => "2019-01-15", "paid_at" => "2019-01-15 22:00:00", "description"=>"Prime Foods Comercio e","total_installments"=>1,"category"=>"restaurante","value"=>18.9,"paid_value"=>18.9],
+            ["due_date"=>"2019-01-16","paid_at"=>"2019-01-16 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>76.97,"paid_value"=>76.97],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Mc Donalds","total_installments"=>1,"category"=>"restaurante","value"=>-3,"paid_value"=>3],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>40.78,"paid_value"=>40.78],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Dirceu Martins","total_installments"=>1,"category"=>"serviços","value"=>45,"paid_value"=>45],
+            ["due_date"=>"2019-01-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Studio dos Cachos","total_installments"=>1,"category"=>"serviços","value"=>65,"paid_value"=>65],
+            ["due_date"=>"2019-01-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Havan Importados","total_installments"=>1,"category"=>"eletrônicos","value"=>194.97,"paid_value"=>194.97]
+        ];
+
+        $this->client->request('POST',self::EXPENSE_ROUTE."/batch", $multiple, [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(422);
+        $this->assertJsonStringEqualsJsonString($this->client->getResponse()->getContent(), '{"status":"fail","data":{"value":"Value must be a decimal equal or greater than zero!"}}');
+
+        $this->client->request('GET', self::EXPENSE_ROUTE, [], [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(200);
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertCount(2, $res["data"]);
+        $expense = $res["data"];
+
+        usort($expense, function($a, $b) {
+            return $a['due_date'] <=> $b['due_date'];
+        });
+
+        $this->assertEquals(1, $expense[0]["installment_number"]);
+        $this->assertEquals(1, $expense[1]["installment_number"]);
+
+        $this->assertEquals(18.9,$expense[0]["value"]);
+        $this->assertEquals(76.97,$expense[1]["value"]);
+    }
+
+    public function testListByTypePendingIfNotHaveDataShouldReturnEmpty()
+    {
+        $result = $this->getTokenAuthenticate();
+
+        $this->client->request('GET', self::EXPENSE_ROUTE."?status=pending", [], [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(200);
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertCount(0, $res["data"]);
+    }
+
+    public function testListWith10expensesAnd2WithTypePendingShouldReturn2()
+    {
+        $result = $this->getTokenAuthenticate();
+
+        $multiple = [
+            ["due_date"=>"2019-01-15","paid_at"=>"2019-01-15 22:00:00","description"=>"Prime Foods Comercio e","total_installments"=>1,"category"=>"restaurante","value"=>18.9,"paid_value"=>18.9, "status"=> "paid"],
+            ["due_date"=>"2019-01-16","paid_at"=>"2019-01-16 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>76.97,"paid_value"=>76.97, "status"=> "paid"],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Mc Donalds","total_installments"=>1,"category"=>"restaurante","value"=>3,"paid_value"=>3, "status"=> "paid"],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>40.78,"paid_value"=>40.78],
+            ["due_date"=>"2019-01-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Dirceu Martins","total_installments"=>1,"category"=>"serviços","value"=>45,"paid_value"=>45],
+            ["due_date"=>"2019-01-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Studio dos Cachos","total_installments"=>1,"category"=>"serviços","value"=>65,"paid_value"=>65, "status"=> "paid"],
+            ["due_date"=>"2019-01-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Havan Importados","total_installments"=>1,"category"=>"eletrônicos","value"=>194.97,"paid_value"=>194.97, "status"=> "paid"]
+        ];
+
+        $this->registerExpense(self::EXPENSE_ROUTE."/batch", $multiple, $result["token"]);
+
+        $this->client->request('GET', self::EXPENSE_ROUTE."?status=pending", [], [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(200);
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+
+        usort($res["data"], function($a, $b) {
+            return $a['due_date'] <=> $b['due_date'];
+        });
+
+        $this->assertCount(2, $res["data"]);
+
+        $this->assertEquals(45,$res["data"][0]["value"]);
+        $this->assertEquals(40.78,$res["data"][1]["value"]);
+    }
+
+    public function testListByDueDateAndPendingShowExpensesLowerThanDueDateInformed()
+    {
+        $result = $this->getTokenAuthenticate();
+        $lastMonthDate = new \DateTime("-1 month");
+        $currentMonth = new \DateTime();
+
+        $expense = [
+            "description"=>"Prime Foods Comercio e", "due_date"=>$lastMonthDate->format("Y-m-d"),"total_installments"=>5,"category"=>"restaurante","value"=>18.9,"payment_type"=>"boleto", "status"=> "pending"];
+
+        $this->registerExpense(self::EXPENSE_ROUTE."", $expense, $result["token"]);
+
+        $this->client->request('GET', self::EXPENSE_ROUTE."?status=pending&due_date=".$currentMonth->format("Y-m-t"), [], [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(200);
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+
+        usort($res["data"], function($a, $b) {
+            return $a['due_date'] <=> $b['due_date'];
+        });
+
+        $this->assertCount(2, $res["data"]);
+
+        $this->assertEquals($lastMonthDate->format("Y-m-d"),$res["data"][0]["due_date"]);
+        $this->assertEquals($currentMonth->format("Y-m-d"),$res["data"][1]["due_date"]);
+        $this->assertEquals(3.78,$res["data"][0]["value"]);
+        $this->assertEquals(3.78,$res["data"][1]["value"]);
+    }
+
+    public function testShowStatisticsLast12MonthsPie()
+    {
+        $result = $this->getTokenAuthenticate();
+
+        $multiple = [
+            ["due_date"=>"2019-01-15","paid_at"=>"2019-01-15 22:00:00","description"=>"Prime Foods Comercio e","total_installments"=>1,"category"=>"restaurante","value"=>18.9,"paid_value"=>18.9, "status"=> "paid"],
+            ["due_date"=>"2019-02-16","paid_at"=>"2019-01-16 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>76.97,"paid_value"=>76.97, "status"=> "paid"],
+            ["due_date"=>"2019-03-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Mc Donalds","total_installments"=>1,"category"=>"restaurante","value"=>3,"paid_value"=>3, "status"=> "paid"],
+            ["due_date"=>"2019-04-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>40.78,"paid_value"=>40.78],
+            ["due_date"=>"2019-05-17","paid_at"=>"2019-01-17 22:00:00","description"=>"Dirceu Martins","total_installments"=>1,"category"=>"serviços","value"=>45,"paid_value"=>45],
+            ["due_date"=>"2019-06-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Studio dos Cachos","total_installments"=>1,"category"=>"serviços","value"=>65,"paid_value"=>65, "status"=> "paid"],
+            ["due_date"=>"2019-07-18","paid_at"=>"2019-01-18 22:00:00","description"=>"Havan Importados","total_installments"=>1,"category"=>"eletrônicos","value"=>194.97,"paid_value"=>194.97, "status"=> "paid"]
+        ];
+
+        $this->registerExpense(self::EXPENSE_ROUTE."/batch", $multiple, $result["token"]);
+
+        $this->client->request('GET', self::EXPENSE_ROUTE."/statistics/year", [], [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(200);
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertCount(4, $res["data"]);
+        sort($res["data"]);
+
+        $this->assertEquals(55.91,$res["data"][0]["percentage"]);
+        $this->assertEquals(0.86,$res["data"][1]["percentage"]);
+        $this->assertEquals(31.54,$res["data"][2]["percentage"]);
+        $this->assertEquals(11.69,$res["data"][3]["percentage"]);
+    }
+
+    public function testShowStatisticsCurrentMonthsPie()
+    {
+        $result = $this->getTokenAuthenticate();
+        $currentMonth = new \DateTime();
+        $dateFormatted = $currentMonth->format('Y-m-d');
+
+        $multiple = [
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-15 22:00:00","description"=>"Prime Foods Comercio e","total_installments"=>1,"category"=>"restaurante","value"=>18.9,"paid_value"=>18.9, "status"=> "paid"],
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-16 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>76.97,"paid_value"=>76.97, "status"=> "paid"],
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-17 22:00:00","description"=>"Mc Donalds","total_installments"=>1,"category"=>"restaurante","value"=>3,"paid_value"=>3, "status"=> "paid"],
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-17 22:00:00","description"=>"Bistek Supermercados","total_installments"=>1,"category"=>"supermercado","value"=>40.78,"paid_value"=>40.78],
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-17 22:00:00","description"=>"Dirceu Martins","total_installments"=>1,"category"=>"serviços","value"=>45,"paid_value"=>45],
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-18 22:00:00","description"=>"Studio dos Cachos","total_installments"=>1,"category"=>"serviços","value"=>65,"paid_value"=>65, "status"=> "paid"],
+            ["due_date"=>$dateFormatted,"paid_at"=>"2019-01-18 22:00:00","description"=>"Havan Importados","total_installments"=>1,"category"=>"eletrônicos","value"=>194.97,"paid_value"=>194.97, "status"=> "paid"]
+        ];
+
+        $this->registerExpense(self::EXPENSE_ROUTE."/batch", $multiple, $result["token"]);
+
+        $this->client->request('GET', self::EXPENSE_ROUTE."/statistics/month", [], [], ["HTTP_Authorization" => $result["token"]]);
+        $this->assertResponseStatusCodeSame(200);
+        $res = json_decode($this->client->getResponse()->getContent(), true);
+
+
+        $this->assertCount(4, $res["data"]);
+
+        $this->assertEquals(43.85,$res["data"][0]["percentage"]);
+        $this->assertEquals(4.93,$res["data"][1]["percentage"]);
+        $this->assertEquals(24.74,$res["data"][2]["percentage"]);
+        $this->assertEquals(26.48,$res["data"][3]["percentage"]);
     }
 }

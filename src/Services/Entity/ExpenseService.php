@@ -150,12 +150,13 @@ final class ExpenseService implements ExpenseServiceInterface
         return $this->repository->getAllBy($params);
     }
 
-    public function getListNotDeletedBy(array $params, string $user_id): array
+    public function getListNotDeletedAndOrderBy(array $params, string $user_id): array
     {
+        $params = $this->expense->getParamsToListAll($params);
         $params["registered_by"] = $user_id;
         $params["deleted_at"] = null;
 
-        return $this->repository->getAllBy($params);
+        return $this->repository->listAllBy($params);
     }
 
     /**
@@ -332,5 +333,45 @@ final class ExpenseService implements ExpenseServiceInterface
         }
 
         return $params;
+    }
+
+    public function getExpensesToPieChartByDueDate($params, string $user_id): array
+    {
+        $startDate = new \DateTime();
+        $endDate = new \DateTime();
+
+        if (!empty($params["startDate"])) {
+            $startDate = new \DateTime($params["startDate"]);
+        }
+
+        if (!empty($params["endDate"])) {
+            $endDate = new \DateTime($params["endDate"]);
+        }
+
+        $params["registered_by"] = $user_id;
+        $params["deleted_at"] = null;
+        $params["startDate"] = $startDate->format("Y-m-01");
+        $params["endDate"] = $endDate->format("Y-m-t");
+
+        $res = $this->repository->getDataToPieChartByCategoryAndDueDate($params);
+
+        if (empty($res)) {
+            return [];
+        }
+
+        return $res;
+    }
+
+    public function getExpensesToLineChartByLast12Months(string $user_id): array
+    {
+        $params["registered_by"] = $user_id;
+
+        $res = $this->repository->getLast12MonthsStatisticsByCategoryAndDueDate($params);
+
+        if (empty($res)) {
+            return [];
+        }
+
+        return $res;
     }
 }

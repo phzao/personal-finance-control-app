@@ -47,6 +47,6 @@ class SlackService implements SlackServiceInterface
 
     public function setBackendErrorChannel(): void
     {
-        $this->hook_url = 'https://hooks.slack.com/services/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';
+        $this->hook_url = $_ENV["SLACK_TOKEN"];
     }
 }

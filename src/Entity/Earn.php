@@ -14,11 +14,8 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @ORM\Entity
  * @ORM\Table(name="earns",
  *     indexes={
- *     @ORM\Index(name="earns_place_description_idx", columns={"place_id", "description"}),
- *     @ORM\Index(name="earns_place_type", columns={"place_id", "type"}),
  *     @ORM\Index(name="earns_place_earn_at", columns={"place_id", "earn_at"}),
  *     @ORM\Index(name="earns_place_confirmed_at", columns={"place_id", "confirmed_at"}),
- *     @ORM\Index(name="earns_place_place", columns={"place_id", "place_id"})
  * })
  */
 class Earn extends ModelBase implements EarnInterface, ModelInterface, SimpleTimeInterface, \JsonSerializable

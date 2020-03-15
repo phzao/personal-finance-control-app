@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Expense;
 use App\Repository\Interfaces\ExpenseRepositoryInterface;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -34,29 +35,106 @@ class ExpenseRepository extends BaseRepository implements ExpenseRepositoryInter
         return $this->getOneBy(["id" => $id]);
     }
 
-    public function listAllBy(array $params,
-                              $orderBy = "created_at",
-                              $order = "ASC"): array
+    public function listAllBy(array $params, $orderBy = "created_at", $order = "ASC"): array
     {
-        $description = empty($params["description"])? "":"AND p.description ILIKE :description ";
-        $status      = empty($params["status"])?"":"AND p.status=:status ";
+        $description = empty($params["description"])? "":"AND e.description ILIKE :description ";
+        $status = empty($params["status"]) ? "" : "AND e.status=:status ";
+        $dueDate = empty($params["due_date"]) ? "" : "AND e.due_date<=:due_date ";
+        $deletedAt = !key_exists("deleted_at", $params) ? "" : "AND e.deleted_at IS NULL ";
 
-        $res = $this->conn->prepare("SELECT * 
-                                              FROM places p
-                                              WHERE p.user_id=:user_id 
+        $res = $this->entityManager->createQuery("SELECT e 
+                                              FROM App\Entity\Expense e
+                                              WHERE e.registered_by=:registered_by 
                                                 $description 
                                                 $status
-                                              ORDER BY p.".$orderBy." $order");
+                                                $dueDate
+                                                $deletedAt
+                                              ORDER BY e.".$orderBy." $order");
 
-        $res->bindValue('user_id', $params["user"]);
+        $res->setParameter('registered_by', $params["registered_by"]);
 
         if(!empty($params["description"])) {
-            $res->bindValue('description', $params["description"]."%");
+            $res->setParameter('description', $params["description"]."%");
         }
 
         if(!empty($params["status"])) {
-            $res->bindValue('status', $params["status"]);
+            $res->setParameter('status', $params["status"]);
         }
+
+        if(!empty($params["due_date"])) {
+            $res->setParameter('due_date', $params["due_date"]);
+        }
+
+        return $res->getResult();
+    }
+
+    public function getDataToPieChartByCategoryAndDueDate(array $params): array
+    {
+        $res = $this->conn->prepare(
+            "SELECT 
+                            res.sum AS total,
+                            res.count AS num_expenses,
+                            res.description AS description,
+                            res.id AS id
+                        FROM
+                        (SELECT
+                            SUM(ex.value),
+                            COUNT(*),
+                            cat.id,
+                            cat.description
+                        FROM 
+                            public.expenses AS ex
+                        INNER JOIN categories AS cat ON cat.id = ex.category_id
+                        WHERE ex.registered_by_id=:registered_by
+                        AND ex.deleted_at IS NULL
+                        AND
+                            ex.due_date >=:start_date AND ex.due_date <=:end_date
+                        GROUP BY cat.description, cat.id
+                        ORDER BY cat.description) AS res"
+        );
+
+        $res->bindValue('registered_by', $params["registered_by"]);
+        $res->bindValue('start_date', $params["startDate"]);
+        $res->bindValue('end_date', $params["endDate"]);
+
+        $res->execute();
+
+        return $res->fetchAll();
+    }
+
+    public function getLast12MonthsStatisticsByCategoryAndDueDate(array $params): array
+    {
+        $res = $this->conn->prepare(
+            "SELECT
+                        (SELECT 
+                                SUM(ex.value)
+                            FROM 
+                                expenses AS ex
+                            WHERE 
+                                CAST(ex.due_date AS TEXT) LIKE categories.year_month||'-%' 
+                            AND ex.category_id = categories.id) AS total,
+                        categories.description,
+                        categories.id,
+                        categories.year_month,
+                        UPPER(to_char(to_timestamp (SPLIT_PART(categories.year_month,'-',2)::text, 'MM'), 'TMmon'))||'/'||SPLIT_PART(categories.year_month,'-',1) AS reference
+                        FROM
+                            (SELECT 
+                                distinct cat.id, 
+                                 cat.description,
+                                CAST((extract(year FROM due_date))||'-'||lpad(extract(month FROM due_date)::text, 2, '0') AS TEXT) AS year_month
+                            FROM 
+                                expenses
+                            INNER JOIN categories AS cat ON cat.id = category_id
+                            WHERE
+                                registered_by_id=:registered_by
+                            AND
+                                expenses.due_date > CURRENT_DATE - INTERVAL '12 months'
+                            AND
+                                expenses.deleted_at IS NULL
+                              ) AS categories"
+                            );
+
+        $res->bindValue('registered_by', $params["registered_by"]);
 
         $res->execute();
 

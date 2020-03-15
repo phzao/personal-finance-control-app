@@ -19,9 +19,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * @ORM\Entity
  * @ORM\Table(name="credit_cards",
  *     indexes={
- *     @ORM\Index(name="credit_cards_status_type", columns={"status"}),
- *     @ORM\Index(name="credit_cards_user_description", columns={"user_id", "description"}),
- *     @ORM\Index(name="credit_cards_user_status", columns={"user_id", "status"})
+ *     @ORM\Index(name="credit_cards_status_type", columns={"status"})
  * })
  */
 class CreditCard extends ModelBase implements CreditCardInterface, SimpleTimeInterface, ModelInterface, ReadUserOutsideInterface, \JsonSerializable

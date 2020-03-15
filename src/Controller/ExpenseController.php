@@ -9,6 +9,7 @@ use App\Services\Entity\Interfaces\CreditCardServiceInterface;
 use App\Services\Entity\Interfaces\ExpenseServiceInterface;
 use App\Services\Entity\Interfaces\PlaceServiceInterface;
 use App\Utils\Datetime\Interfaces\DatetimeCheckServiceInterface;
+use App\Utils\Statistics\CalculatePercentageInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -52,6 +53,56 @@ class ExpenseController extends APIController
             $expenseSaved = $expenseService->getSavedExpenseList($expenses);
 
             return $this->respondCreated($expenseSaved);
+        } catch (BadRequestHttpException $exception) {
+
+            return $this->respondNotAllowedError($exception->getMessage());
+        } catch (UnprocessableEntityHttpException $exception) {
+
+            return $this->respondValidationFail($exception->getMessage());
+        }  catch (NotFoundHttpException $exception) {
+
+            return $this->respondNotFoundError($exception->getMessage());
+        } catch (\Exception $exception) {
+
+            return $this->respondBadRequestError($exception->getMessage());
+        }
+    }
+
+    /**
+     * @Route("/batch", methods={"POST"})
+     */
+    public function batchSave(Request $request,
+                              PlaceServiceInterface $placeService,
+                              CategoryServiceInterface $categoryService,
+                              ExpenseServiceInterface $expenseService,
+                              CreditCardServiceInterface $cardService,
+                              DatetimeCheckServiceInterface $dateService)
+    {
+        try {
+            $expenseList  = $request->request->all();
+            set_time_limit(0);
+            $user = $this->getUser();
+
+            $expenseSavedList = [];
+
+            foreach($expenseList as $data)
+            {
+                $expense = new Expense();
+                $data["registered_by"] = $user;
+                $data["category"] = $categoryService->getOneByUserAnyway($user, $data);
+                $data["place"] = $placeService->getOneByUserAnyway($user, $data);
+                $data["creditCard"] = $cardService->getOneAnywayIfExpenseIsOfTypeCreditCard($user, $data);
+
+                $datesAttribute = $expense->getAllAttributesDateAndFormat();
+                $data = $dateService->getDatesListConvertedToDatetimeOrFail($datesAttribute, $data);
+
+                $expenses = $expenseService->getExpenseListToSave($data);
+
+                $listToSave = $expenseService->getValidatedExpenseListToSaveOrFail($expenses);
+                $expenseSavedList = array_merge($expenseSavedList, $expenseService->getSavedExpenseList($listToSave));
+            }
+
+            return $this->respondCreated($expenseSavedList);
         } catch (BadRequestHttpException $exception) {
 
             return $this->respondNotAllowedError($exception->getMessage());
@@ -166,9 +217,51 @@ class ExpenseController extends APIController
             $data = $request->query->all();
             $user = $this->getUser();
 
-            $list = $expenseService->getListNotDeletedBy($data, $user->getId());
+            $list = $expenseService->getListNotDeletedAndOrderBy($data, $user->getId());
 
             return $this->respondSuccess($list);
+
+        } catch (\Exception $exception) {
+
+            return $this->respondBadRequestError($exception->getMessage());
+        }
+    }
+
+    /**
+     * @Route("/statistics/month", methods={"GET"})
+     */
+    public function pieStatistics(Request $request,
+                                   ExpenseServiceInterface $expenseService,
+                                   CalculatePercentageInterface $calculatePercentage)
+    {
+        try {
+            $data = $request->query->all();
+            $user = $this->getUser();
+
+            $list = $expenseService->getExpensesToPieChartByDueDate($data, $user->getId());
+            $statistic = $calculatePercentage->getPercentageFromList($list, "total");
+
+            return $this->respondSuccess($statistic);
+
+        } catch (\Exception $exception) {
+
+            return $this->respondBadRequestError($exception->getMessage());
+        }
+    }
+
+    /**
+     * @Route("/statistics/year", methods={"GET"})
+     */
+    public function lineStatistics(ExpenseServiceInterface $expenseService,
+                                   CalculatePercentageInterface $calculatePercentage)
+    {
+        try {
+            $user = $this->getUser();
+
+            $list = $expenseService->getExpensesToLineChartByLast12Months($user->getId());
+
+            $statistic = $calculatePercentage->getPercentageByMonthYear($list);
+            return $this->respondSuccess($statistic);
 
         } catch (\Exception $exception) {
 

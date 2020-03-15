@@ -27,7 +27,7 @@ interface ExpenseServiceInterface
 
     public function deleteOneExpenseOrAllGroupByToken(Expense $expense);
 
-    public function getListNotDeletedBy(array $params, string $user_id): array;
+    public function getListNotDeletedAndOrderBy(array $params, string $user_id): array;
 
     public function updateExpenseOrFail(Expense $expense, array $requestData);
 
@@ -40,4 +40,8 @@ interface ExpenseServiceInterface
     public function isToChangeTotalInstallments(array $expense, array $requestData): bool;
 
     public function isToChangePaymentType(array $expense, array $requestData): bool;
+
+    public function getExpensesToPieChartByDueDate($data, string $user_id): array;
+
+    public function getExpensesToLineChartByLast12Months(string $user_id): array;
 }

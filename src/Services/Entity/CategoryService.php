@@ -42,6 +42,10 @@ final class CategoryService implements CategoryServiceInterface
             $category = $this->repository->getOneByID($request["category"]);
         }
 
+        if (!empty($request["category"]) && !Uuid::isValid($request["category"])) {
+            $category = $this->repository->getOneByDescription($user->getId(), $request["category"]);
+        }
+
         if (!$category && empty($request["category"])) {
             $category = $this->repository->getOneDefaultOrNotByUser($user->getId());
         }

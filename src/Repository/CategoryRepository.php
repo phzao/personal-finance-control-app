@@ -24,6 +24,22 @@ class CategoryRepository extends BaseRepository implements CategoryRepositoryInt
         return $this->getOneBy(["id" => $id]);
     }
 
+    public function getOneByDescription(string $user_id, string $description): ?Category
+    {
+
+        $sql = "SELECT c
+                FROM App\Entity\Category c
+                WHERE c.user=:user_id
+                AND c.description LIKE :description ";
+        $query = $this->entityManager
+                        ->createQuery($sql)
+                        ->setParameter('user_id', $user_id)
+                        ->setParameter('description', "$description%")
+                        ->setMaxResults(1);
+
+        return $query->getOneOrNullResult();
+    }
+
     public function getOneByUserAndID(string $user_id, string $id): ?Category
     {
         return $this->getOneBy(["user" => $user_id, "id" => $id]);
@@ -34,9 +50,7 @@ class CategoryRepository extends BaseRepository implements CategoryRepositoryInt
         return $this->getAllBy(["user" => $user_id, "deleted_at" => null]);
     }
 
-    public function listAllBy(array $params,
-                              $orderBy = "created_at",
-                              $order = "ASC"): array
+    public function listAllBy(array $params, $orderBy = "created_at", $order = "ASC"): array
     {
 
         return $this->objectRepository->findBy($params,[$orderBy=>$order]);
@@ -60,7 +74,6 @@ class CategoryRepository extends BaseRepository implements CategoryRepositoryInt
                       ->createQuery($sql)
                       ->setParameter('user_id', $user_id)
                       ->setMaxResults(1);
-
 
         return $query->getOneOrNullResult();
     }

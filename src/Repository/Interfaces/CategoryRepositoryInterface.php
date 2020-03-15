@@ -20,4 +20,6 @@ interface CategoryRepositoryInterface extends BaseRepositoryInterface
     public function getOneDefaultOrNotByUser(string $user_id): ?Category;
 
     public function setAllCategoriesAsNonDefault(string $user_id);
+
+    public function getOneByDescription(string $user_id, string $description): ?Category;
 }

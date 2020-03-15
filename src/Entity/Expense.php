@@ -27,8 +27,6 @@ use Symfony\Component\Validator\Constraints as Assert;
  *     @ORM\Index(name="expenses_due_date_idx", columns={"due_date"}),
  *     @ORM\Index(name="expenses_created_at_idx", columns={"created_at"}),
  *     @ORM\Index(name="expenses_status_payment_type_idx", columns={"status", "payment_type"}),
- *     @ORM\Index(name="expenses_registered_by_description_idx", columns={"registered_by_id", "description"}),
- *     @ORM\Index(name="expenses_paid_by_description_idx", columns={"paid_by_id", "description"}),
  *     @ORM\Index(name="expenses_registered_by_status_idx", columns={"registered_by_id", "status"}),
  *     @ORM\Index(name="expenses_credit_card_id_due_date", columns={"credit_card_id", "due_date"}),
  *     @ORM\Index(name="expenses_credit_card_id_due_date_status", columns={"credit_card_id", "due_date", "status"}),
@@ -192,6 +190,7 @@ class Expense extends ModelBase implements ModelInterface, ExpenseInterface, Sim
     protected $paramsListAll = [
         "description",
         "created_at",
+        "due_date",
         "status"
     ];
 
@@ -322,7 +321,7 @@ class Expense extends ModelBase implements ModelInterface, ExpenseInterface, Sim
             "amount_paid"  => $this->amount_paid,
             "payment_type" => $this->payment_type,
             "status" => $this->status,
-            "payment_type_description"  => GeneralTypes::getPaymentsDescription($this->payment_type),
+            "payment_type_description" => GeneralTypes::getPaymentsDescription($this->payment_type),
             "status_description" => GeneralTypes::getExpenseDescription($this->status),
             "installment_number" => $this->installment_number,
             "total_installments" => $this->total_installments,
@@ -481,7 +480,7 @@ class Expense extends ModelBase implements ModelInterface, ExpenseInterface, Sim
     public function getCategoryDetails(): ?array
     {
         if (!$this->category) {
-            return $this->category;
+            return null;
         }
 
         return $this->category->getCategoryInfo();
